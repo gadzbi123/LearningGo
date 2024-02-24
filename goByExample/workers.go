@@ -7,97 +7,84 @@ import (
 	"time"
 )
 
-func startManager(workerCount, JOBS int, jobs chan<- int, results chan int, comms chan JobsDone, doneCEO chan bool) {
+func startManager(workerCount, numJobs int, jobs chan<- int, results chan int, comms chan JobDone, doneCEO chan bool) {
 	jobsDone := 0
+	defer func() {
+		close(jobs)
+		close(results)
+	}()
 	for {
-		select {
-		case comm := <-comms:
-			if !comm.done {
-				fmt.Printf("Manager: Worker %v cut his finger on job %v\n", comm.workerId, comm.job)
-				workerCount--
-				if workerCount == 0 {
-					doneCEO <- false
-					close(jobs)
-					close(results)
-					return
-				}
-				go func() { jobs <- comm.job }()
+		comm := <-comms
+		if !comm.done {
+			fmt.Printf("Manager: Worker %v cut his finger on job %v\n", comm.workerId, comm.job)
+			workerCount--
+			jobs <- comm.job
+			if workerCount == 0 {
+				doneCEO <- false
+				return
 			}
-			if comm.done {
-				jobsDone++
-				if jobsDone == JOBS {
-					fmt.Printf("How many workers are able to work: %v\n", workerCount)
-					doneCEO <- true
-					close(jobs)
-					close(results)
-					return
-				}
+		}
+		if comm.done {
+			jobsDone++
+			if jobsDone == numJobs {
+				fmt.Printf("How many workers are able to work: %v\n", workerCount)
+				doneCEO <- true
+				return
 			}
-		default:
 		}
 	}
 }
 
-type JobsDone struct {
+type JobDone struct {
 	workerId, job int
 	done          bool
 }
 
-func startWorker(id int, jobs <-chan int, res chan<- int, comms chan JobsDone) {
+func startWorker(id int, jobs <-chan int, res chan<- int, comms chan JobDone, injuryChance float64) {
 	for j := range /* don't put <- or you will receive always same jobs */ jobs {
 		fmt.Printf("started worker %v on job %v\n", id, j)
 		time.Sleep(time.Second)
-		// Chance on injury
-		if rand.Int()%30 == 0 {
-			// fmt.Printf("Worker %v cut his finger on job %v\n", id, j)
-			comms <- JobsDone{id, j, false}
+		if rand.Float64() <= injuryChance {
+			comms <- JobDone{id, j, false}
 			return
 		}
 		res <- j * 2
 		fmt.Printf("finished worker %v on job %v\n", id, j)
-		comms <- JobsDone{id, j, true}
+		comms <- JobDone{id, j, true}
 	}
-
 }
+
 func main() {
-	const JOBS = 30
-	const WORKERS = 3
-	jobs := make(chan int, JOBS)
-	results := make(chan int, JOBS)
-	comms := make(chan JobsDone)
+	const numJobs = 30
+	const numWorkers = 3
+	const injuryChance = 0.1
+	jobs := make(chan int, numJobs)
+	results := make(chan int, numJobs)
+	comms := make(chan JobDone)
 	doneCEO := make(chan bool, 1)
 
-	go func() {
-		for i := 1; i <= JOBS; i++ {
-			jobs <- i
-		}
-	}()
-
-	go startManager(WORKERS, JOBS, jobs, results, comms, doneCEO)
-	for i := 1; i <= WORKERS; i++ {
-		go startWorker(i, jobs, results, comms)
+	for i := 1; i <= numJobs; i++ {
+		jobs <- i
 	}
 
-f:
-	for {
-		select {
-		case x := <-doneCEO:
-			if x {
-				fmt.Println("Job done")
-				break f
-			} else {
-				fmt.Println("Job wasn't done")
-				break f
-			}
-		default:
-		}
+	go startManager(numWorkers, numJobs, jobs, results, comms, doneCEO)
+	for i := 1; i <= numWorkers; i++ {
+		go startWorker(i, jobs, results, comms, injuryChance)
 	}
 
-	res := make([]int, 0, JOBS)
+	// block main until there is message to CEO
+	msg := <-doneCEO
+	if msg {
+		fmt.Println("Job done")
+	} else {
+		fmt.Println("Job wasn't done")
+	}
+
+	res := make([]int, 0, numJobs)
 	for j := range results {
 		res = append(res, j)
 	}
-	fmt.Printf("RESULTS: %v\n", res)
+	fmt.Printf("Jobs: %v, Complete: %v, results: %v\n", numJobs, len(res), res)
 
 	var stats runtime.MemStats
 	runtime.ReadMemStats(&stats)
