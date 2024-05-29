@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/inancgumus/screen"
@@ -105,14 +106,16 @@ func getSplittedDigit(digit string) []string {
 	spl_digit := strings.Split(digit, "\n")
 	return spl_digit[1 : len(spl_digit)-1]
 }
-func printDigits(digits []int, splitter_visible bool) {
+func printDigits(timeClock *TimeClock) {
+	screen.Clear()
+	screen.MoveTopLeft()
 	arr := make([][]string, 5)
 	for i := range arr {
-		arr[i] = make([]string, 0)
+		arr[i] = make([]string, 0, 6)
 	}
-	var my_screen string
+	var my_screen string = "\033[31m"
 	var spl_mid []string
-	if splitter_visible {
+	if timeClock.getSplitter() {
 		spl_mid = getSplittedDigit(middle)
 	} else {
 		for i := 0; i < 5; i++ {
@@ -121,8 +124,8 @@ func printDigits(digits []int, splitter_visible bool) {
 	}
 
 	for i := 0; i < 5; i++ {
-		for _, digit := range digits {
-			splitted := getSplittedDigit(DIGITS[digit])
+		for _, timeDigit := range timeClock.getCurrentTime() {
+			splitted := getSplittedDigit(DIGITS[timeDigit])
 			arr[i] = append(arr[i], splitted[i])
 		}
 
@@ -136,55 +139,82 @@ func printDigits(digits []int, splitter_visible bool) {
 		}
 		my_screen += "\n"
 	}
-	fmt.Println(my_screen)
+	fmt.Printf("%v\033[0m\n", my_screen)
 }
-func TimeArray() []int {
-	var timeArr []int = make([]int, 6)
+
+var currentTime *TimeClock = &TimeClock{time: make([]int, 6)}
+
+type TimeClock struct {
+	time             []int
+	splitter_visible bool
+	mu               sync.Mutex
+}
+
+func (tc *TimeClock) updateTime(updater chan interface{}) {
+	var timeArr []int
 	t := time.Now()
-	if timeArr[5] == t.Second()%10 {
-		return timeArr
-	}
-	timeArr[0] = t.Hour() / 10
-	timeArr[1] = t.Hour() % 10
-	timeArr[2] = t.Minute() / 10
-	timeArr[3] = t.Minute() % 10
-	timeArr[4] = t.Second() / 10
-	timeArr[5] = t.Second() % 10
-	return timeArr
-}
-
-func checkUpdaters(timeArray []int, updater chan []int) {
-	timePreBuffer := TimeArray()
-	// fmt.Println("timePreBuffer:", timePreBuffer[5], "timeArr", timeArray[5])
-	if timePreBuffer[5] != timeArray[5] {
-		updater <- timePreBuffer
+	second := tc.getTimeElement(5)
+	if second != t.Second()%10 {
+		timeArr = make([]int, 6)
+		timeArr[0] = t.Hour() / 10
+		timeArr[1] = t.Hour() % 10
+		timeArr[2] = t.Minute() / 10
+		timeArr[3] = t.Minute() % 10
+		timeArr[4] = t.Second() / 10
+		timeArr[5] = t.Second() % 10
+		tc.mu.Lock()
+		tc.time = timeArr[:]
+		tc.mu.Unlock()
+		updater <- new(interface{})
 	}
 }
 
-func updateSplitter(updater chan []int) {
-	t := time.NewTicker(time.Millisecond * 500)
-	<-t.C
-	updater <- currentTime
+func (tc *TimeClock) getTimeElement(index int) (el int) {
+	tc.mu.Lock()
+	el = tc.time[index]
+	tc.mu.Unlock()
+	return
 }
 
-var currentTime []int
+func (tc *TimeClock) getCurrentTime() (array []int) {
+	tc.mu.Lock()
+	array = append(array, tc.time...)
+	tc.mu.Unlock()
+	return
+}
+
+func (tc *TimeClock) toggleSplitter() {
+	tc.mu.Lock()
+	tc.splitter_visible = !tc.splitter_visible
+	tc.mu.Unlock()
+}
+
+func (tc *TimeClock) getSplitter() (splitter bool) {
+	tc.mu.Lock()
+	splitter = tc.splitter_visible
+	tc.mu.Unlock()
+	return
+}
+
+func updateSplitter(updater chan interface{}) {
+	ticker := time.NewTicker(time.Millisecond * 500)
+	var signal interface{}
+	for range ticker.C {
+		currentTime.toggleSplitter()
+		updater <- signal
+	}
+}
 
 func main() {
-	updater := make(chan []int)
-	var splitter_visible bool
-	currentTime = TimeArray()
+	updater := make(chan interface{})
 	go updateSplitter(updater)
 	for {
 		select {
-		case temp := <-updater:
-			// screen.Clear()
-			screen.MoveTopLeft()
-			currentTime = temp
-			splitter_visible = !splitter_visible
-			printDigits(currentTime, splitter_visible)
+		case <-updater:
+			printDigits(currentTime)
 		default:
-			go checkUpdaters(currentTime, updater)
-			// time.Sleep(time.Millisecond)
+			go currentTime.updateTime(updater)
+			time.Sleep(time.Millisecond)
 		}
 	}
 
