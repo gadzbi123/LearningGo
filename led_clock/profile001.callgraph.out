@@ -1,0 +1,84 @@
+positions: instr line
+events: alloc_space(kB)
+
+ob=(1) /tmp/go-build2958318661/b001/led_clock.test
+fl=(1) /home/linuxbrew/.linuxbrew/Cellar/go/1.22.3/libexec/src/runtime/pprof/pprof.go
+fn=(1) runtime/pprof.StartCPUProfile
+0x4fe22e 833 1184
+
+ob=(1)
+fl=(2) /home/linuxbrew/.linuxbrew/Cellar/go/1.22.3/libexec/src/compress/flate/deflate.go
+fn=(2) compress/flate.NewWriter
+-20738 666 902
+
+ob=(1)
+fl=(3) /home/linuxbrew/.linuxbrew/Cellar/go/1.22.3/libexec/src/runtime/proc.go
+fn=(3) runtime.main
+-776784 271 0
+cfl=(4) _testmain.go
+cfn=(4) main.main
+calls=0 +75039 47
+* * 1184
+
+ob=(1)
+fl=(5) /home/linuxbrew/.linuxbrew/Cellar/go/1.22.3/libexec/src/testing/testing.go
+fn=(5) testing.(*M).Run
++604061 2018 0
+cfl=(5)
+cfn=(6) testing.(*M).before
+calls=0 +610525 2187
+* * 1184
+
+ob=(1)
+fl=(5)
+fn=(6)
++6464 2187 0
+cfl=(6) /home/linuxbrew/.linuxbrew/Cellar/go/1.22.3/libexec/src/testing/internal/testdeps/deps.go
+cfn=(7) testing/internal/testdeps.TestDeps.StartCPUProfile
+calls=0 +238679 48
+* * 1184
+
+ob=(1)
+fl=(7) /home/linuxbrew/.linuxbrew/Cellar/go/1.22.3/libexec/src/compress/gzip/gzip.go
+fn=(8) compress/gzip.(*Writer).Write
++166259 191 0
+cfl=(2)
+cfn=(2)
+calls=0 +166259 666
+* * 902
+
+ob=(1)
+fl=(1)
+fn=(9) runtime/pprof.profileWriter
++21368 863 0
+cfl=(8) /home/linuxbrew/.linuxbrew/Cellar/go/1.22.3/libexec/src/runtime/pprof/proto.go
+cfn=(10) runtime/pprof.(*profileBuilder).build
+calls=0 +38028 390
+* * 902
+
+ob=(1)
+fl=(8)
+fn=(10)
++16660 390 0
+cfl=(7)
+cfn=(8)
+calls=0 -21368 191
+* * 902
+
+ob=(1)
+fl=(6)
+fn=(7)
++27928 48 0
+cfl=(1)
+cfn=(1)
+calls=0 -17290 833
+* * 1184
+
+ob=(1)
+fl=(4)
+fn=(4)
++9083 47 0
+cfl=(5)
+cfn=(5)
+calls=0 -238679 2018
+* * 1184
