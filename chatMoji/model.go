@@ -1,7 +1,7 @@
 package main
 
 import (
-	"bytes"
+	"encoding/json"
 	"log"
 	"net/http"
 	"time"
@@ -11,7 +11,7 @@ import (
 
 type Hub struct {
 	clients    map[*Client]bool
-	broadcast  chan []byte
+	broadcast  chan *DataSent
 	join       chan *Client
 	disconnect chan *Client
 }
@@ -19,7 +19,7 @@ type Hub struct {
 func newHub() *Hub {
 	return &Hub{
 		clients:    make(map[*Client]bool),
-		broadcast:  make(chan []byte),
+		broadcast:  make(chan *DataSent),
 		join:       make(chan *Client),
 		disconnect: make(chan *Client),
 	}
@@ -48,10 +48,20 @@ func (h *Hub) run() {
 	}
 }
 
+type DataSent struct {
+	Data string     `json:"data"`
+	Name string     `json:"name"`
+	Time *time.Time `json:"time"`
+}
+
+func newDataSent() *DataSent {
+	return &DataSent{Data: "", Name: "", Time: nil}
+}
+
 type Client struct {
 	hub  *Hub
 	conn *websocket.Conn
-	send chan []byte
+	send chan *DataSent
 }
 
 const (
@@ -59,10 +69,6 @@ const (
 	pongPeriod = 10 * time.Second
 	pingPeriod = 8 * pongPeriod / 10 // shorter then pong
 	readLimit  = 512
-)
-
-var (
-	newline = []byte{'\n'}
 )
 
 func (c *Client) writeContent() {
@@ -75,7 +81,7 @@ func (c *Client) writeContent() {
 	}()
 	for {
 		select {
-		case msg, ok := <-c.send:
+		case data, ok := <-c.send:
 			if !ok {
 				c.conn.WriteMessage(websocket.CloseMessage, []byte{})
 			}
@@ -84,12 +90,16 @@ func (c *Client) writeContent() {
 				log.Println("Error on creating a next writer", err)
 				return
 			}
-			w.Write(msg)
-			n := len(c.send)
-			for i := 0; i < n; i++ {
-				w.Write(newline)
-				w.Write(<-c.send)
+			msg, err := json.Marshal(*data)
+			if err != nil {
+				log.Println("Couldn't parse data", err)
 			}
+			w.Write(msg)
+			// n := len(c.send)
+			// for i := 0; i < n; i++ {
+			// 	w.Write(newline)
+			// 	w.Write(<-c.send)
+			// }
 			if err := w.Close(); err != nil {
 				log.Println("Error on closing writer", err)
 				return
@@ -121,8 +131,14 @@ func (c *Client) readContent() {
 			}
 			return
 		}
-		message = bytes.Trim(message, "\n")
-		c.hub.broadcast <- message
+
+		data := newDataSent()
+		err = json.Unmarshal(message, data)
+		if err != nil {
+			log.Println("Error during unmarshal", err)
+		}
+		// message = bytes.Trim(message, "\n")
+		c.hub.broadcast <- data
 	}
 }
 
@@ -133,10 +149,9 @@ func serveWS(h *Hub, w http.ResponseWriter, r *http.Request) {
 		log.Println("Error during update", err)
 		return
 	}
-	client := &Client{hub: h, conn: conn, send: make(chan []byte, 1)}
+	client := &Client{hub: h, conn: conn, send: make(chan *DataSent, 1)}
 	client.hub.join <- client
 
 	go client.writeContent()
 	go client.readContent()
-
 }
