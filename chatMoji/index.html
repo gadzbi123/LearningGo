@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Chat Emoji</title>
+</head>
+<script>
+	window.onload = function () {
+		let conn;
+		let msg = document.getElementById('msg');
+		let log = document.getElementById('log');
+		let form = document.getElementById('form')
+		console.log(form)
+		function appendLog(msg) {
+			let d = document.createElement('div');
+			d.innerHTML = msg;
+			log.append(d);
+		}
+		form.onsubmit = function (evt) {
+			if (!conn)
+			{
+				return false;
+			}
+			if (!msg.value)
+			{
+				return false;
+			}
+			conn.send(msg.value);
+			msg.value = "";
+			msg.focus()
+			return false;
+		}
+		if (window["WebSocket"])
+		{
+			conn = new WebSocket(`ws://${document.location.host}/ws`);
+			conn.onclose = function (evt) {
+				appendLog("<b>Connection closed</b>");
+			}
+			conn.onmessage = function (evt) {
+				appendLog(evt.data);
+			}
+			// conn.onerror = function (evt){
+			// }
+		}
+	}
+</script>
+
+<body>
+	<div id="log"></div>
+	<form id="form">
+		<input type="text" id="msg">
+		<button type="submit">Send</button>
+	</form>
+</body>
+
+</html>
