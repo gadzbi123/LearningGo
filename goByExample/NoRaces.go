@@ -10,7 +10,7 @@ type safeArray struct {
 }
 
 func main() {
-	var wg sync.WaitGroup
+  var wg sync.WaitGroup
 	var size int = 10e6
 	safeArr := safeArray{arr: make([]int, size)}
 	for i := 1; i <= size; i++ {
