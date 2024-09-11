@@ -1,0 +1,5 @@
+<h1> Regular value: {{ printf "$%.2f" .Price }}</h1>
+<h1> AddTax value: {{ printf "$%.2f" .AddTax }}</h1>
+<h1> Discount value: {{ .ApplyDiscount 35 | printf "$%.2f" }}</h1>
+<h2> Product uppercase name {{ .GetName true }}</h2>
+<h3> Product default name {{ .GetName false }}</h3>

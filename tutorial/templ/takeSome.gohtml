@@ -1,0 +1,12 @@
+{{ define "my_len" }}
+  {{- $length := len . -}}
+  Length of Products: {{ $length }}
+{{- end -}}
+{{ template "my_len" . }}
+Length of slice 4-6 -> {{template "my_len" slice . 4 6}}
+First element: {{index . 0}}
+{{ range $i, $v := slice . 5 7 -}}
+<h1> Index: {{$i}}, Name: {{.Name}}, Category: {{.Category}}, Price: 
+  {{- printf "$%.2f " .Price -}}
+</h1>
+{{ end }}
