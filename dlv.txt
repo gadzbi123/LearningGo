@@ -1,0 +1,2 @@
+# Run dlv server and attach client into it 
+dlv dap --listen=127.0.0.1:2345 --log-dest=3
